@@ -1,0 +1,208 @@
+/* UI-laag in de DOM boven het canvas. Tekst minstens 24 px, knoppen minstens 44 px, niets alleen op hover. */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #1d1d1f; }
+body {
+  display: flex; align-items: center; justify-content: center;
+  font: 24px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #1a1a1a;
+}
+[hidden] { display: none !important; }
+[data-t]:empty { display: none; }
+.teksten-geladen .terugval { display: none; } /* de tweetalige terugval uit de bouw alleen zonder teksten */
+.terugval p { margin: 0 0 8px; }
+
+/* 16:9-podium: past altijd in het venster, met zwarte randen waar nodig. Achter het doorzichtige canvas ligt de
+   achtergrondplaat (vaste kunst, DEV.md): het bord bedekt het lege midden, de randen blijven zichtbaar. */
+#podium {
+  position: relative; width: min(100vw, calc(100vh * 16 / 9)); aspect-ratio: 16 / 9; overflow: hidden;
+  background: #e8c7a2 url("../kunst/achtergrond-hart.webp") center / cover no-repeat;
+}
+#doek { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+#ui { position: absolute; inset: 0; }
+
+h1 { margin: 0; font-size: 64px; line-height: 1.1; }
+h2 { margin: 0; font-size: 44px; line-height: 1.15; }
+h3 { margin: 8px 0 0; font-size: 30px; }
+p { margin: 0; }
+
+.scherm {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+  padding: 96px 48px 40px; text-align: center; background: rgba(253, 248, 239, 0.95);
+}
+#scherm-eind { background: rgba(253, 248, 239, 0.88); }
+/* Startscherm: het conceptbeeld met een lichte laag, het lichtst achter de tekst (de speeltest meet het contrast). */
+#scherm-start {
+  background:
+    radial-gradient(ellipse 50% 58% at 50% 55%, rgba(253, 248, 239, 0.84) 0%, rgba(253, 248, 239, 0.74) 62%, rgba(253, 248, 239, 0.25) 100%),
+    url("../kunst/start-hart.webp") center / cover no-repeat;
+}
+
+.knop {
+  min-width: 56px; min-height: 56px; padding: 8px 24px; cursor: pointer;
+  font: inherit; font-size: 28px; font-weight: 700; color: #1a1a1a;
+  background: #fff; border: 3px solid #1a1a1a; border-radius: 14px;
+}
+.knop:hover { background: #f1ede4; }
+.knop.groot { min-height: 88px; padding: 12px 64px; font-size: 40px; }
+.knop.primair { background: #ffd23f; }
+.knop.primair:hover { background: #ffc800; }
+.knop.rond { width: 56px; padding: 0; border-radius: 50%; }
+.knop:focus-visible, .kaart:focus-visible { outline: 4px solid #1a1a1a; outline-offset: 4px; }
+
+.balk { position: absolute; top: 16px; left: 16px; right: 16px; z-index: 3; display: flex; align-items: center; gap: 12px; pointer-events: none; }
+.balk > * { pointer-events: auto; }
+.ruimte { flex: 1; }
+.pil { padding: 6px 20px; font-size: 28px; font-weight: 700; background: rgba(255, 255, 255, 0.92); border: 3px solid #1a1a1a; border-radius: 999px; }
+
+.draaier { width: 72px; height: 72px; border: 8px solid #d8d2c4; border-top-color: #1a1a1a; border-radius: 50%; animation: draai 1s linear infinite; }
+@keyframes draai { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .draaier { animation-duration: 4s; } }
+.groot-teken { font-size: 96px; font-weight: 800; line-height: 1; }
+
+.besturing { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.regel { display: flex; align-items: center; gap: 16px; }
+.toetsen { display: inline-flex; gap: 6px; }
+kbd {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 48px; height: 48px; padding: 0 10px;
+  font: 700 26px/1 system-ui, sans-serif; background: #fff; border: 3px solid #1a1a1a; border-bottom-width: 6px; border-radius: 10px;
+}
+kbd.spatie { min-width: 200px; }
+.wat { font-size: 28px; }
+#scherm-start .regel-hulp, #hulp .regel-hulp { display: none; }
+.hint {
+  position: absolute; left: 50%; bottom: 20px; z-index: 2; transform: translateX(-50%);
+  padding: 16px 24px; background: rgba(253, 248, 239, 0.95); border: 3px solid #1a1a1a; border-radius: 16px;
+}
+
+/* Held kiezen: een raster dat meegroeit met de klas; past het niet, dan scrolt het (toetsenbordfocus scrolt mee).
+   Kaarten rekken niet mee met de hoogste in hun rij, en een naam tot 60 tekens (de grens in de keurpoort) past
+   helemaal in de lijst, ook op 1366 x 658: de naam blijft zoals het kind hem schreef, de opmaak past zich aan. */
+#scherm-kies, #scherm-level { padding-top: 84px; gap: 20px; } /* meer hoogte voor de lijst; de balk (56 px hoog vanaf 16 px) blijft vrij */
+#scherm-kies h2, #scherm-level h2 { flex: none; }
+.kaart.levelkaart { width: 186px; } /* vijf levels naast elkaar, ook op 1366 x 658 (podium 1170 breed) */
+.levelkaart .nummer { font-size: 56px; font-weight: 800; line-height: 1; }
+.helden {
+  display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; align-items: flex-start; gap: 20px;
+  flex: 0 1 auto; min-height: 0; width: 100%; overflow-y: auto; padding: 12px;
+}
+.kaart {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; width: 240px; padding: 12px; cursor: pointer;
+  font: inherit; color: #1a1a1a; background: #fff; border: 4px solid #1a1a1a; border-radius: 20px;
+}
+.kaart:hover, .kaart:focus-visible { background: #fff6d6; }
+.kaart { scroll-margin: 12px; } /* focus scrolt de kaart in beeld mét de focusrand */
+.kaart img { width: 104px; height: 104px; object-fit: contain; }
+.kaart .naam { max-width: 100%; font-size: 24px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.kaart .wie { white-space: nowrap; }
+.kaart .kies { margin-top: 4px; padding: 4px 18px; font-size: 26px; font-weight: 700; background: #ffd23f; border: 3px solid #1a1a1a; border-radius: 12px; }
+
+.venster { position: absolute; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.45); }
+.paneel {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 16px; max-width: 90%; max-height: 92%; overflow: auto;
+  padding: 28px 40px; background: #fdf8ef; border: 4px solid #1a1a1a; border-radius: 20px;
+}
+.blokjes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 28px; margin: 0; padding: 0; list-style: none; }
+.blokjes li { display: flex; align-items: center; gap: 14px; }
+.staal { flex: none; width: 40px; height: 40px; border: 3px solid #1a1a1a; border-radius: 6px; }
+.staal.muur { background: #c77d4a; }
+.staal.trede { background: #e69e66; }
+.staal.finish { background: #f2cc33; }
+.staal.klep { background: #f5e6bd; box-shadow: inset -12px -12px 0 #ff8c1a; }
+.staal.ster { background: #ffdb1a; border-radius: 50%; }
+.staal.vlag { background: #ccccd1; }
+.staal.lift { background: #e1e1e6; box-shadow: inset 0 0 0 5px #4d4d54; }
+.staal.vlot { background: linear-gradient(#e1e1e6, #e1e1e6) center / 60% 60% no-repeat, #333338; } /* vlot op water */
+.staal.vraagblok { background: #d6d6db; }
+.staal.schurk { background: transparent; border-style: dashed; }
+.staal.bal { background: #fff; border-radius: 50%; } /* wit = witte bloedcel (afweer) */
+
+/* HUD in de balk: sterren en de vitamine. */
+.ster-teken { color: #c99a00; }
+.pil.vitamine { background: #fff6d6; }
+/* De hartslag van de held (loop D): linksonder in het speelveld, onder de vraag en de terugkoppeling (z-index 2-3). */
+/* Iets kleiner dan de pillen in de balk: op een Chromebook (1366 x 658) blijft er ruimte naar de besturingshint. */
+.pil.hart { position: absolute; left: 16px; bottom: 16px; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 6px 16px 6px 10px; font-size: 24px; white-space: nowrap; pointer-events: none; }
+.hartje { flex: none; width: 36px; height: 36px; }
+/* De voorraad witte bloedcellen (loop E): rechtsonder, zelfde maat als de hartslag-pil. Leeg: grijs met donkere tekst
+   (contrast ~10:1) en een dikke rand: de vorm verandert, niet alleen de kleur; geen rood (rood = zuurstofrijk). Tik: de
+   reactie op F bij 0 als er geen beweging mag zijn: even omgekeerd. */
+.pil.afweer { position: absolute; right: 16px; bottom: 16px; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 6px 16px; font-size: 24px; white-space: nowrap; pointer-events: none; }
+.pil.afweer.leeg { background: #c9c9cc; color: #1a1a1a; border-width: 6px; padding: 3px 13px; }
+.pil.afweer.tik { background: #1a1a1a; color: #fff; }
+
+/* De opdracht: letters boven de blokjes, de vraag in een vak, de terugkoppeling apart. Geen kleurcode. */
+#labels { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+.blok-label, .antwoorden .letter {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 44px; height: 44px; padding: 0 8px;
+  font-size: 30px; font-weight: 800; line-height: 1; background: #fff; border: 3px solid #1a1a1a; border-radius: 10px;
+}
+.blok-label { position: absolute; left: 0; top: 0; }
+.blok-label.vraagteken { background: #fdf8ef; }
+.opdracht {
+  position: absolute; left: 50%; bottom: 16px; z-index: 2; transform: translateX(-50%); width: max-content; max-width: 92%;
+  padding: 12px 22px; background: rgba(253, 248, 239, 0.96); border: 3px solid #1a1a1a; border-radius: 16px;
+}
+.opdracht.boven { top: 84px; bottom: auto; }
+.vraag-regel { display: flex; align-items: center; gap: 12px; font-size: 28px; font-weight: 700; }
+.vraag-regel .teken { font-size: 36px; font-weight: 800; }
+.antwoorden { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; font-size: 26px; }
+.antwoorden li { display: flex; align-items: center; gap: 12px; }
+.terugkoppeling {
+  position: absolute; left: 50%; top: 84px; z-index: 3; transform: translateX(-50%); width: max-content; max-width: 92%;
+  padding: 12px 26px; font-size: 30px; background: #fff; border: 4px solid #1a1a1a; border-radius: 16px;
+}
+.opdracht.boven ~ .terugkoppeling { top: auto; bottom: 16px; }
+/* Staat de vraag in beeld, dan wijkt de besturingshint (eerste 10 s van een level): anders bedekt die de vraag. */
+.opdracht:not([hidden]) ~ .hint { display: none; }
+
+.feest { font-size: 64px; }
+.vraag { max-width: 900px; font-size: 32px; }
+
+/* Geluid aan/uit (ook toets M): het icoon volgt aria-pressed, dus icoon en stand lopen nooit uiteen. */
+.knop .icoon { display: block; width: 30px; height: 30px; margin: auto; }
+#knop-geluid[aria-pressed="true"] .icoon-uit, #knop-geluid[aria-pressed="false"] .icoon-aan { display: none; }
+/* De regel "M = geluid aan/uit" alleen in het hulpvenster: de hint bij de start en het startscherm blijven rustig. */
+.regel-geluid { display: none; }
+#hulp .regel-geluid { display: flex; }
+
+/* Sap (DEV.md, Sap en geluid): deeltjes, vliegende ster en de naam van een schurk, boven het canvas. Klein, en ze
+   halen zichzelf weg. Geen lesskleuren: goud, wit, grijs en beige. */
+/* z-index 3 en na de balk in de DOM: de vliegende ster landt zichtbaar op de sterrenteller; het hulpvenster (4) ligt erboven. */
+#deeltjes { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+.deeltje { position: absolute; left: 0; top: 0; border-radius: 50%; }
+.deeltje.goud { background: #ffd23f; box-shadow: 0 0 0 2px rgba(201, 154, 0, 0.6); }
+.deeltje.wit { background: #fffdf5; box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.18); }
+.deeltje.grijs { background: #d9d6cf; }
+.deeltje.beige { background: #eadcc0; }
+.deeltje.stip { width: 40px; height: 40px; background: rgba(255, 210, 63, 0.55); box-shadow: none; }
+.vlieg-ster { position: absolute; left: 0; top: 0; font-size: 34px; line-height: 1; color: #f2cc33; -webkit-text-stroke: 1.5px #8a6a00; }
+/* De naam van een schurk: altijd heel (besluit meester 29 sep), ook bij 60 tekens (het datacontract), op hoogstens
+   2 regels en in 26 px (tekst in de UI is minstens 24 px). Eerst smal; past de naam zo niet op 2 regels (brede letters,
+   geen spaties), dan zet feest.mjs hem breed: 60 keer de breedste letter past dan op 2 regels. Groter dan de
+   oppervlaktegrens voor een flits, daarom komt hij hoogstens één keer per 350 ms (feest.mjs, GRENS_MS). */
+.roep {
+  position: absolute; left: 0; top: 0; padding: 4px 14px; max-width: min(560px, calc(100% - 16px));
+  font-size: 26px; font-weight: 800; line-height: 32px; text-align: center; overflow-wrap: anywhere;
+  background: #fff; border: 3px solid #1a1a1a; border-radius: 16px;
+}
+.roep.breed { max-width: min(860px, calc(100% - 16px)); }
+
+/* Eindscherm als podium: de eigen tekening groot, naam en maker, de verdiende sterren; confetti erachter. */
+#scherm-eind { gap: 22px; }
+#scherm-eind > :not(#confetti) { position: relative; z-index: 1; }
+.podium-held { display: flex; align-items: center; gap: 28px; max-width: 92%; }
+#eind-held { width: 150px; height: 150px; object-fit: contain; }
+.eind-knoppen { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px; }
+.eind-wie { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; }
+.eind-wie .naam { font-size: 36px; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
+.eind-sterren { display: flex; align-items: center; gap: 10px; font-size: 28px; font-weight: 700; }
+#eind-sterren-rij { display: inline-flex; gap: 6px; }
+/* Alleen voor een schermlezer (het aantal sterren op het podium): niet te zien, wel voorgelezen. */
+.voor-schermlezer { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.eind-ster { display: inline-block; font-size: 40px; line-height: 1; color: #f2cc33; -webkit-text-stroke: 1.5px #8a6a00; }
+#confetti { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.snipper { position: absolute; left: 0; top: 0; width: 10px; height: 16px; border-radius: 2px; }
+.snipper.ster { width: auto; height: auto; font-size: 22px; line-height: 1; background: none; }
+.snipper.k0 { background: #ffd23f; } .snipper.k1 { background: #f2cc33; } .snipper.k2 { background: #c99a00; }
+.snipper.k3 { background: #ffffff; box-shadow: 0 0 0 1px rgba(26, 26, 26, 0.2); } .snipper.k4 { background: #f5e6bd; }
+.snipper.ster.k0, .snipper.ster.k1, .snipper.ster.k2, .snipper.ster.k3, .snipper.ster.k4 { background: none; box-shadow: none; color: #f2cc33; }
